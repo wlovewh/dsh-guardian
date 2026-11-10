@@ -1,0 +1,10 @@
+# Local research scratch (asar helpers, extracted packages, notes)
+.research/
+
+# Runtime output from the backup feature during local testing
+backups/
+
+# Packaging noise
+node_modules/
+*.log
+.DS_Store
