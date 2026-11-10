@@ -27,7 +27,7 @@ import {
   sanitiseSettings,
 } from './lib/store.js'
 import { GuardianTools } from './lib/tools.js'
-import { humanSize, pathExists, resolveProfileDir } from './lib/util.js'
+import { resolveProfileDir } from './lib/util.js'
 
 /** Web prefix route carrying the panel's RPC calls. */
 export const CHANNEL = '/guardian'
@@ -297,9 +297,7 @@ export async function apply(ctx) {
   // Surface the resolved roots once at startup so the panel and logs agree.
   void ready.then(() => {
     ctx.logger?.info?.(
-      `dsh-guardian ready: home=${paths.home} trash=${path.relative(paths.home, paths.trashRoot)} backups=${resolveBackupRoot(DEFAULT_SETTINGS)} (${humanSize(0)})`,
+      `dsh-guardian ready · home=${paths.home} · profile=${paths.profile ?? 'none'} · trash=${paths.trashRoot} · backups=${resolveBackupRoot(DEFAULT_SETTINGS)}`,
     )
   })
 }
-
-export { pathExists }
