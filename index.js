@@ -10,7 +10,6 @@
  *   shell-deletion guard),
  * - run the durable backup schedule and the trash retention sweep.
  */
-import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { BackupManager } from './lib/backup.js'
@@ -28,6 +27,7 @@ import {
 } from './lib/store.js'
 import { GuardianTools } from './lib/tools.js'
 import { resolveProfileDir } from './lib/util.js'
+import { assertCron } from './lib/cron.js'
 
 /** Web prefix route carrying the panel's RPC calls. */
 export const CHANNEL = '/guardian'
@@ -135,9 +135,17 @@ export async function apply(ctx) {
     [
       'settings.update',
       async (payload) => {
-        const settings = await settingsStore.update(payload?.patch ?? {})
+        const patch = payload?.patch ?? {}
+        if (typeof patch.backupCron === 'string' && patch.backupCron.trim() !== '') {
+          try {
+            assertCron(patch.backupCron)
+          } catch (error) {
+            throw new Error(`cron 表达式无效：${String(error && error.message ? error.message : error)}`)
+          }
+        }
+        const settings = await settingsStore.update(patch)
         await backups.reschedule()
-        await stores.audit.append('settings.update', sanitiseSettings(payload?.patch ?? {}))
+        await stores.audit.append('settings.update', sanitiseSettings(patch))
         return { settings }
       },
     ],
@@ -248,19 +256,17 @@ export async function apply(ctx) {
           }
         }
 
-        if (settings.backupIntervalHours > 0) {
-          const interval = settings.backupIntervalHours * 60 * 60 * 1000
-          const last = state.lastBackupAt ?? 0
-          const due = (state.nextBackupAt ?? 0) > 0 ? now >= state.nextBackupAt : last === 0 ? false : now - last >= interval
-          const seed = last === 0 && state.nextBackupAt === null && now - (state.startedAt ?? 0) > 0
+        const cron = typeof settings.backupCron === 'string' ? settings.backupCron.trim() : ''
+        if (cron !== '' || settings.backupIntervalHours > 0) {
+          const due = typeof state.nextBackupAt === 'number' && now >= state.nextBackupAt
           if (due) {
             await backups.run({ kind: 'scheduled' })
-          } else if (state.nextBackupAt === null) {
-            // First boot with scheduling enabled: plan the first run one interval out.
-            const next = last === 0 ? now + 90 * 1000 : now + interval
+          } else if (typeof state.nextBackupAt !== 'number') {
+            // First boot with scheduling enabled: seed shortly after start when no
+            // backup exists yet, otherwise plan the first real run.
+            const next = state.lastBackupAt ? backups.computeNext(settings, now) : now + 90 * 1000
             await settingsStore.setState({ nextBackupAt: next, startedAt: state.startedAt ?? now })
           }
-          void seed
         }
       } catch (error) {
         ctx.logger?.warn?.(`dsh-guardian: scheduled task failed: ${String(error && error.message ? error.message : error)}`)
@@ -278,21 +284,7 @@ export async function apply(ctx) {
     }
   }, 'dsh-guardian: schedule')
 
-  /* ----------------------------------------------------------- dev probe */
-
-  // Dev-only: the maintainer's RPC harness needs one authenticated URL. Enabled
-  // only while the marker file exists inside the development checkout.
-  try {
-    const marker = path.join('D:/Project/dsh-guardian/.research/DEV_PROBE')
-    if (fs.existsSync(marker)) {
-      fs.writeFileSync(
-        path.join('D:/Project/dsh-guardian/.research/url.txt'),
-        ctx.connection.authenticatedUrl(`${ctx.webServer.getOrigin()}/`),
-      )
-    }
-  } catch {
-    /* ignore */
-  }
+  /* ------------------------------------------------------------- start-up */
 
   // Surface the resolved roots once at startup so the panel and logs agree.
   void ready.then(() => {
