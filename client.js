@@ -104,6 +104,13 @@ window.__ModuleLoader__.load({
             GuardianIcon,
           ),
         )
+
+        // TEMP end-to-end probe: verify the browser half can reach the Host channel.
+        setTimeout(() => {
+          callHost(ctx, 'ping', { from: 'client-activation', at: Date.now() })
+            .then((value) => callHost(ctx, 'diag', { ok: true, value }))
+            .catch((error) => callHost(ctx, 'diag', { ok: false, message: String(error?.message ?? error) }))
+        }, 1500)
       },
     }
   },
