@@ -12,6 +12,7 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { BackupManager } from './lib/backup.js'
 import { GuardianService } from './lib/service.js'
 import { SnapshotManager } from './lib/snapshot.js'
@@ -26,7 +27,7 @@ import {
   sanitiseSettings,
 } from './lib/store.js'
 import { GuardianTools } from './lib/tools.js'
-import { humanSize, pathExists } from './lib/util.js'
+import { humanSize, pathExists, resolveProfileDir } from './lib/util.js'
 
 /** Web prefix route carrying the panel's RPC calls. */
 export const CHANNEL = '/guardian'
@@ -39,8 +40,9 @@ export const name = 'dsh-guardian'
 export const inject = ['connection', 'webServer']
 
 /** Mount the panel route, the data service, the tools and the scheduler. */
-export function apply(ctx) {
+export async function apply(ctx) {
   const paths = guardianPaths()
+  paths.profile = await resolveProfileDir(path.dirname(fileURLToPath(import.meta.url))).catch(() => undefined)
   const settingsStore = new SettingsStore(paths)
   const trashStore = new TrashStore(paths)
   const backupStore = new BackupStore(paths, settingsStore)
