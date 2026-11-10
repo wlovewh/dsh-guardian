@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Guardian",
+    "description": "Session history, an undoable recycle bin, config snapshots, and scheduled backups with a zero-dependency rescue script."
+  }
+}

@@ -1,0 +1,4 @@
+# dsh-guardian bundle patch: inserts the Host row that serves the panel and the data APIs.
+- insert:
+    - id: dsh-guardian
+      name: dsh-guardian
