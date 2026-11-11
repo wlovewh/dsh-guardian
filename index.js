@@ -129,7 +129,19 @@ export async function apply(ctx) {
           defaults: DEFAULT_SETTINGS,
           resolvedBackupRoot: resolveBackupRoot(settings),
           envEscapeHatch: process.env.DSH_GUARDIAN_FORCE_DELETE === '1',
+          bypassUntil: Number(settings.safeDeleteBypassUntil ?? 0) > Date.now() ? settings.safeDeleteBypassUntil : 0,
+          now: Date.now(),
         }
+      },
+    ],
+    [
+      'settings.bypass',
+      async (payload) => {
+        const minutes = Math.max(1, Math.min(720, Math.round(Number(payload?.minutes ?? 30)) || 30))
+        const until = payload?.minutes === 0 ? 0 : Date.now() + minutes * 60 * 1000
+        const settings = await settingsStore.update({ safeDeleteBypassUntil: until })
+        await stores.audit.append('settings.bypass', { minutes: payload?.minutes === 0 ? 0 : minutes, until })
+        return { settings, until }
       },
     ],
     [

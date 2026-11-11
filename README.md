@@ -51,12 +51,16 @@ attachments/<sha256>.<ext>    被引用附件的原始字节（内容寻址）
 
 - **会话回收站**：`sessions/<projectKey>/<sessionId>/` 整个目录（含所有日志代际）一次性同盘 `rename` 到 `$DSH_HOME/guardian/trash/sessions/<entryId>/payload/`，不复制、不改写日志；子代理会话目录（可能在别的 projectKey 下）一起移动。
   移动前会：拒绝仍在运行的会话 → 归档会话（避免侧栏残留幽灵条目）→ `sessionPersistence.flush()` → 记录原相对路径（projectKey 是有损编码，不能由 `cwd` 反推）→ 移动投影缓存行。
-- **文件回收站**：`safe_delete` 工具与 `trashPath` 把工作区文件/目录移入 `$DSH_HOME/guardian/trash/files/`。
+- **文件回收站**：`safe_delete` 工具把工作区文件/目录移入 `$DSH_HOME/guardian/trash/files/`。
 - **恢复**：会话回到记录下来的**原始绝对路径**，同时恢复投影缓存并取消归档；文件回到原路径。
 - **彻底删除**：先 `trash.previewPurge` 列出将被清理的路径/大小/文件数，再要求 `confirm: true`。**附件永远是内容寻址共享的，任何会话清理都不会删除附件对象。**
 - **保留策略**：默认 30 天（可配，0 = 永不自动清理），到期条目在面板给出到期提醒，`trash.sweep` 静默清理。
-- **工具层拦截**：`tools/pre-execute` 监听器拒绝 `bash/pwsh` 里出现 `rm` / `Remove-Item` / `del` / `erase` / `rmdir` / `rd /s` / `rimraf` / `rmSync/rmdirSync/unlinkSync` 的命令，并引导模型改用 `safe_delete`；每次拒绝写入审计日志。
-- **逃生舱**：设置环境变量 `DSH_GUARDIAN_FORCE_DELETE=1` 后重启 DSH，可临时关闭工具层拦截（设置页会显示当前是否已生效）。
+- **工具层拦截（会真正接管删除）**：`tools/pre-execute` 监听 `bash/pwsh` 等命令。能解析的**简单删除命令**（`rm`、`Remove-Item`、`del`、`erase`、`rmdir`、`rd /s`，含引号与多目标）会把目标**实际移入文件回收站**，然后拒绝执行；带管道、通配符、变量、子命令或不带 `workdir` 的复杂命令**直接拒绝**并提示改用 `safe_delete`。每次接管/拒绝都写入审计日志。
+- **两个开关的区别**：
+  - **拦截 shell 删除命令**（`safeDeleteEnabled`）：控制上面这条"命令层"安全网，关闭后 `rm` 等命令按原样执行。
+  - **启用文件回收站（safe_delete 工具）**（`fileTrashEnabled`）：控制"文件层"回收站本身，即 `safe_delete` 与被接管的 shell 删除能否把文件移入回收站。两者都开时才是完整闭环。
+- **逃生舱（两种）**：设置页「临时放行 30 分钟」按钮（确认后生效、到期自动恢复、写入审计），或环境变量 `DSH_GUARDIAN_FORCE_DELETE=1` 后重启 DSH（长期生效，需自行移除）。
+- **回收站只碰两类内容**：被移入的会话日志（含子会话与投影缓存）与被移入的单个文件/目录。**项目源码、配置文件、共享附件永远不会被它改动或删除**；彻底删除也只清理该条目自身。
 
 ### C. 配置快照与差异对比
 

@@ -249,8 +249,8 @@ window.__ModuleLoader__.load({
 
       // recycle bin
       trashHint: [
-        '移入回收站的会话会保留原路径，恢复时按原路径放回；附件是内容寻址的共享对象，本页任何操作都不会删除它们。',
-        'Trashed sessions keep their original paths and are restored in place. Attachments are content-addressed and shared — nothing on this page ever deletes them.',
+        '这里只处理两类内容：被移入的会话日志（连同子会话与投影缓存），以及通过 safe_delete 或 shell 删除拦截移入的单个文件/目录。它不会改动项目源码、配置文件或共享附件——彻底删除也只清理条目自身。',
+        'This bin holds exactly two things: moved session logs (with subagent children and projection cache), and the individual files/directories captured by safe_delete or the shell-delete guard. It never touches project sources, configuration, or shared attachments — a permanent delete removes only the entry itself.',
       ],
       trashSource: ['来源', 'Source'],
       movedAt: ['移入时间', 'Moved'],
@@ -384,10 +384,21 @@ window.__ModuleLoader__.load({
         'When enabled, the backup archive contains .credentials.yaml, .env and MCP tokens — protect the archive yourself.',
       ],
       settingsSafety: ['安全网', 'Safety net'],
-      safeDelete: ['安全删除开关', 'Safe delete guard'],
-      safeDeleteHint: ['拦截工具调用中的 rm / Remove-Item，改为移入回收站。', 'Intercepts rm / Remove-Item in tool calls and moves the targets to the recycle bin.'],
-      fileTrash: ['文件级安全删除', 'File-level safe delete'],
-      fileTrashHint: ['让 safe_delete 工具对工作区文件生效。', 'Enables the safe_delete tool for workspace files.'],
+      safeDelete: ['拦截 shell 删除命令', 'Block shell delete commands'],
+      safeDeleteHint: ['拦截 rm / Remove-Item / del / rmdir：能识别的简单命令会把目标移入文件回收站后再拒绝执行，复杂命令直接拒绝。', 'Blocks rm / Remove-Item / del / rmdir. Simple commands have their targets moved into the file recycle bin and are then refused; composed commands are refused outright.'],
+      fileTrash: ['启用文件回收站（safe_delete 工具）', 'Enable file recycle bin (safe_delete tool)'],
+      fileTrashHint: ['开启后，safe_delete 工具与被拦截的简单 shell 删除都会把文件移入回收站；关闭后文件级删除不会被接管。', 'When on, the safe_delete tool and intercepted simple shell deletes move files into the recycle bin; when off, file-level deletes are not captured.'],
+      bypassTitle: ['临时放行 shell 删除', 'Temporary bypass'],
+      bypassHint: ['放行期间 shell 删除命令按原样执行，删除的文件不会进入回收站；每次放行都会写入审计日志。', 'While active, shell delete commands run as-is and files do not enter the recycle bin; every bypass is written to the audit log.'],
+      bypassIdle: ['当前未放行', 'Not bypassed'],
+      bypassActive: ['放行中，截止', 'Active until'],
+      bypassEnable: ['临时放行 30 分钟', 'Bypass for 30 minutes'],
+      bypassBack: ['立即恢复拦截', 'Restore interception'],
+      bypassConfirmTitle: ['临时放行 shell 删除？', 'Bypass shell-delete interception?'],
+      bypassConfirmBody: ['接下来的 30 分钟内，rm / Remove-Item 等命令会直接执行，删除的文件不会进入回收站。', 'For the next 30 minutes, rm / Remove-Item run directly and deleted files do not enter the recycle bin.'],
+      bypassConfirmAction: ['确认放行', 'Bypass'],
+      bypassEnabled: ['已临时放行 30 分钟', 'Bypassed for 30 minutes'],
+      bypassDisabled: ['已恢复删除拦截', 'Interception restored'],
       snapshotOnImport: ['导入前自动快照', 'Snapshot before import'],
       settingsSaved: ['设置已保存', 'Settings saved'],
       settingsNoChanges: ['没有需要保存的修改', 'No changes to save'],
@@ -396,8 +407,8 @@ window.__ModuleLoader__.load({
       useDefaults: ['使用默认值', 'Use defaults'],
       escapeHatch: ['逃生舱', 'Escape hatch'],
       escapeHatchText: [
-        '设置 DSH_GUARDIAN_FORCE_DELETE=1 可以临时绕过删除拦截，绕过动作会写入审计日志。当前状态：',
-        'Setting DSH_GUARDIAN_FORCE_DELETE=1 temporarily bypasses delete interception; bypassed deletions are written to the audit log. Current state:',
+        '两种临时放行方式：设置页的「临时放行 30 分钟」（到期自动恢复，需确认），或设置环境变量 DSH_GUARDIAN_FORCE_DELETE=1 后重启 DSH（长期生效，需自行移除）。每次放行都会写入审计日志。当前状态：',
+        'Two ways to bypass: the “Bypass for 30 minutes” control on this page (auto-expires, confirmed first), or DSH_GUARDIAN_FORCE_DELETE=1 plus a DSH restart (persistent until removed). Every bypass is written to the audit log. Current state:',
       ],
       escapeOn: ['已启用', 'Enabled'],
       escapeOff: ['未启用', 'Not enabled'],
@@ -421,130 +432,148 @@ window.__ModuleLoader__.load({
      * ==================================================================== */
 
     const CSS = `
-.dg-root{display:flex;flex-direction:column;height:100%;min-height:0;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:400 13px/1.5 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;}
+.dg-root{--dg-radius-sm:var(--dsw-radius-sm,6px);--dg-radius-md:var(--dsw-radius-md,8px);--dg-radius-lg:var(--dsw-radius-lg,12px);--dg-radius-xl:var(--dsw-radius-xl,16px);--dg-hover:var(--dsw-alias-interactive-bg-hover,color-mix(in srgb,var(--dsw-alias-label-primary) 7%,transparent));display:flex;flex-direction:column;height:100%;min-height:0;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:400 13px/1.5 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;}
 .dg-root *{box-sizing:border-box;}
-.dg-head{display:flex;align-items:flex-start;gap:12px;padding:12px 16px 8px;}
-.dg-title{margin:0;font-size:14px;font-weight:600;line-height:20px;}
-.dg-sub{margin-top:2px;font-size:12px;color:var(--dsw-alias-label-secondary);}
-.dg-head-actions{margin-left:auto;display:flex;align-items:center;gap:8px;flex:0 0 auto;}
-.dg-status{font-size:12px;color:var(--dsw-alias-label-secondary);white-space:nowrap;max-width:340px;overflow:hidden;text-overflow:ellipsis;}
+.dg-head{display:flex;align-items:flex-start;gap:16px;padding:20px 24px 10px;}
+.dg-title{margin:0;font-size:19px;font-weight:500;line-height:26px;letter-spacing:-.01em;}
+.dg-sub{margin-top:3px;font-size:13px;line-height:20px;color:var(--dsw-alias-label-secondary);}
+.dg-head-actions{margin-left:auto;display:flex;align-items:center;gap:10px;flex:0 0 auto;}
+.dg-status{font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary);white-space:nowrap;max-width:320px;overflow:hidden;text-overflow:ellipsis;}
 .dg-status.dg-err{color:var(--dsw-alias-state-error-primary);}
-.dg-tabs{display:flex;gap:2px;padding:0 12px;border-bottom:1px solid var(--dsw-alias-border-l1);}
-.dg-tab{height:32px;padding:0 10px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;}
-.dg-tab:hover{color:var(--dsw-alias-label-primary);}
-.dg-tab[data-active="true"]{color:var(--dsw-alias-label-primary);border-bottom-color:var(--dsw-alias-brand-primary);font-weight:500;}
-.dg-body{flex:1;min-height:0;overflow:auto;padding:12px 16px 24px;}
-.dg-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px;}
+.dg-tabs{display:inline-flex;align-self:flex-start;gap:4px;margin:0 24px 6px;padding:4px;border-radius:var(--dg-radius-md);background:var(--dsw-alias-bg-layer-2);}
+.dg-tab{height:32px;padding:0 14px;border:.5px solid transparent;border-radius:var(--dg-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:13px;line-height:20px;cursor:pointer;white-space:nowrap;transition:background-color .12s,color .12s;}
+.dg-tab:hover{color:var(--dsw-alias-label-primary);background:var(--dg-hover);}
+.dg-tab[data-active="true"]{background:var(--dsw-alias-bg-layer-1);border-color:var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);font-weight:500;}
+.dg-body{flex:1;min-height:0;overflow:auto;padding:14px 24px 32px;display:flex;flex-direction:column;gap:16px;}
+.dg-body > div{display:flex;flex-direction:column;gap:16px;min-width:0;}
+.dg-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;}
 .dg-spacer{flex:1 1 auto;}
-.dg-btn{height:28px;padding:0 10px;border:1px solid var(--dsw-alias-border-l2);border-radius:6px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;line-height:26px;cursor:pointer;white-space:nowrap;}
-.dg-btn:hover:not(:disabled){background:var(--dsw-alias-bg-layer-2);}
+.dg-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 12px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dg-radius-md);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;line-height:20px;cursor:pointer;white-space:nowrap;transition:background-color .12s,border-color .12s,color .12s;}
+.dg-btn:hover:not(:disabled){background:var(--dg-hover);border-color:var(--dsw-alias-border-l3,var(--dsw-alias-border-l2));}
+.dg-btn:active:not(:disabled){background:var(--dsw-alias-interactive-bg-active,var(--dg-hover));}
+.dg-btn:focus-visible{outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-brand-primary));outline-offset:1px;}
 .dg-btn:disabled{opacity:.45;cursor:default;}
-.dg-btn.dg-primary{background:var(--dsw-alias-brand-primary);border-color:var(--dsw-alias-brand-primary);color:var(--dsw-alias-bg-base);}
-.dg-btn.dg-danger{border-color:var(--dsw-alias-state-error-primary);color:var(--dsw-alias-state-error-primary);background:transparent;}
-.dg-btn.dg-danger-solid{background:var(--dsw-alias-state-error-primary);border-color:var(--dsw-alias-state-error-primary);color:var(--dsw-alias-bg-base);}
+.dg-btn.dg-primary{background:var(--dsw-alias-brand-primary);border-color:var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-primary-foreground,#fff);}
+.dg-btn.dg-primary:hover:not(:disabled){background:color-mix(in srgb,var(--dsw-alias-brand-primary) 88%,#000);border-color:color-mix(in srgb,var(--dsw-alias-brand-primary) 88%,#000);color:var(--dsw-alias-label-primary-foreground,#fff);}
+.dg-btn.dg-danger{border-color:color-mix(in srgb,var(--dsw-alias-state-error-primary) 45%,transparent);color:var(--dsw-alias-state-error-primary);background:transparent;}
+.dg-btn.dg-danger:hover:not(:disabled){background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 10%,transparent);border-color:var(--dsw-alias-state-error-primary);color:var(--dsw-alias-state-error-primary);}
+.dg-btn.dg-danger-solid{background:var(--dsw-alias-state-error-primary);border-color:var(--dsw-alias-state-error-primary);color:var(--dsw-alias-label-primary-foreground,#fff);}
+.dg-btn.dg-danger-solid:hover:not(:disabled){background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 88%,#000);border-color:color-mix(in srgb,var(--dsw-alias-state-error-primary) 88%,#000);color:var(--dsw-alias-label-primary-foreground,#fff);}
 .dg-btn.dg-ghost{border-color:transparent;background:transparent;color:var(--dsw-alias-label-secondary);}
-.dg-btn.dg-ghost:hover:not(:disabled){background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);}
-.dg-input,.dg-select{height:28px;padding:0 8px;border:1px solid var(--dsw-alias-border-l2);border-radius:6px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;min-width:0;}
-.dg-input::placeholder{color:var(--dsw-alias-label-secondary);}
-.dg-input:focus,.dg-select:focus{outline:none;border-color:var(--dsw-alias-brand-primary);}
-.dg-input.dg-grow{flex:1 1 220px;}
-.dg-input.dg-inline{height:22px;width:100%;}
-.dg-field{display:flex;flex-direction:column;gap:4px;min-width:0;}
-.dg-field > label{font-size:12px;color:var(--dsw-alias-label-secondary);}
+.dg-btn.dg-ghost:hover:not(:disabled){background:var(--dg-hover);color:var(--dsw-alias-label-primary);}
+.dg-input,.dg-select{height:36px;padding:0 12px;border:.5px solid var(--dsw-alias-border-l4,var(--dsw-alias-border-l2));border-radius:var(--dg-radius-md);background:var(--dsw-alias-bg-layer-3,var(--dsw-alias-bg-layer-1));color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;min-width:0;transition:border-color .12s,box-shadow .12s;}
+.dg-input::placeholder{color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));}
+.dg-input:hover:not(:disabled),.dg-select:hover:not(:disabled){border-color:var(--dsw-alias-border-l3,var(--dsw-alias-border-l2));}
+.dg-input:focus,.dg-select:focus{outline:none;border-color:var(--dsw-alias-brand-primary);box-shadow:inset 0 0 0 .5px var(--dsw-alias-brand-primary);}
+.dg-input.dg-grow{flex:1 1 260px;}
+.dg-input.dg-inline{height:30px;}
+.dg-select{appearance:none;-webkit-appearance:none;padding-right:34px;cursor:pointer;}
+.dg-select-wrap{position:relative;display:flex;align-items:center;min-width:0;}
+.dg-select-wrap > .dg-select{flex:1 1 auto;width:100%;}
+.dg-select-chevron{position:absolute;right:11px;top:50%;transform:translateY(-50%);pointer-events:none;display:inline-flex;color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));}
+.dg-field{display:flex;flex-direction:column;gap:6px;min-width:0;}
+.dg-field > label{font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary);}
 .dg-field.dg-span2{grid-column:1/-1;}
-.dg-hint{font-size:12px;color:var(--dsw-alias-label-secondary);}
+.dg-hint{font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));}
 .dg-hint.dg-danger{color:var(--dsw-alias-state-error-primary);}
-.dg-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px;}
+.dg-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 20px;}
 .dg-rowline{display:flex;align-items:center;gap:8px;min-width:0;}
 .dg-rowline .dg-input{flex:1 1 auto;}
-.dg-inline-gap{display:flex;flex-wrap:wrap;gap:14px;align-items:center;}
-.dg-totals{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:10px;font-size:12px;color:var(--dsw-alias-label-secondary);}
+.dg-inline-gap{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;}
+.dg-export-scope{display:flex;flex-wrap:wrap;gap:10px 20px;align-items:center;}
+.dg-totals{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary);}
 .dg-totals b{font-weight:600;color:var(--dsw-alias-label-primary);}
-.dg-split{display:flex;gap:12px;align-items:flex-start;}
-.dg-side{flex:0 0 250px;width:250px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-1);overflow:hidden;}
-.dg-side-head{padding:8px 10px;font-size:12px;color:var(--dsw-alias-label-secondary);border-bottom:1px solid var(--dsw-alias-border-l1);}
-.dg-side-list{max-height:min(56vh,540px);overflow:auto;padding:4px;}
-.dg-side-row{display:block;width:100%;text-align:left;border:0;border-radius:6px;background:transparent;padding:6px 8px;cursor:pointer;color:var(--dsw-alias-label-primary);font:inherit;}
-.dg-side-row:hover,.dg-side-row[data-active="true"]{background:var(--dsw-alias-bg-layer-2);}
-.dg-side-title{display:flex;justify-content:space-between;gap:8px;font-size:13px;}
-.dg-side-path{margin-top:2px;font-size:12px;color:var(--dsw-alias-label-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.dg-count{font-size:12px;color:var(--dsw-alias-label-secondary);flex:0 0 auto;}
+.dg-split{display:flex;gap:16px;align-items:flex-start;}
+.dg-side{flex:0 0 276px;width:276px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dg-radius-lg);background:var(--dsw-alias-bg-layer-1);overflow:hidden;}
+.dg-side-head{padding:12px 14px;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));border-bottom:.5px solid var(--dsw-alias-border-l2);}
+.dg-side-list{max-height:min(58vh,560px);overflow:auto;padding:6px;}
+.dg-side-row{display:block;width:100%;text-align:left;border:0;border-radius:var(--dg-radius-md);background:transparent;padding:9px 10px;cursor:pointer;color:var(--dsw-alias-label-primary);font:inherit;transition:background-color .12s;}
+.dg-side-row:hover{background:var(--dg-hover);}
+.dg-side-row[data-active="true"]{background:var(--dsw-alias-bg-layer-2);box-shadow:inset 0 0 0 .5px var(--dsw-alias-border-l2);}
+.dg-side-title{display:flex;justify-content:space-between;gap:10px;font-size:13px;line-height:20px;font-weight:500;}
+.dg-side-path{margin-top:2px;font-size:11.5px;line-height:16px;color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dg-count{font-size:12px;font-weight:400;color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));flex:0 0 auto;font-variant-numeric:tabular-nums;}
 .dg-main{flex:1 1 auto;min-width:0;}
-.dg-panel{border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-1);overflow:hidden;}
-.dg-rowhead{display:flex;align-items:center;gap:8px;height:28px;padding:0 8px;font-size:12px;color:var(--dsw-alias-label-secondary);border-bottom:1px solid var(--dsw-alias-border-l1);}
-.dg-row{display:flex;align-items:center;gap:8px;min-height:32px;padding:0 8px;border-bottom:1px solid var(--dsw-alias-border-l1);}
+.dg-panel{border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dg-radius-lg);background:var(--dsw-alias-bg-layer-1);overflow:hidden;}
+.dg-rowhead{display:flex;align-items:center;gap:12px;height:38px;padding:0 14px;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));border-bottom:.5px solid var(--dsw-alias-border-l2);}
+.dg-row{display:flex;align-items:center;gap:12px;min-height:52px;padding:8px 14px;border-bottom:.5px solid var(--dsw-alias-border-l2);transition:background-color .12s;}
 .dg-row:last-child{border-bottom:0;}
-.dg-row:hover{background:var(--dsw-alias-bg-layer-2);}
-.dg-cell-title{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:6px;}
+.dg-row:hover{background:var(--dg-hover);}
+.dg-cell-title{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:8px;}
 .dg-cell-title > span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.dg-col-num{flex:0 0 62px;width:62px;text-align:right;font-variant-numeric:tabular-nums;font-size:12px;color:var(--dsw-alias-label-secondary);}
-.dg-col-size{flex:0 0 78px;width:78px;text-align:right;font-size:12px;color:var(--dsw-alias-label-secondary);}
-.dg-col-time{flex:0 0 92px;width:92px;text-align:right;font-size:12px;color:var(--dsw-alias-label-secondary);}
-.dg-col-badges{flex:0 0 auto;display:flex;gap:4px;align-items:center;}
-.dg-actions{display:flex;gap:4px;flex:0 0 auto;opacity:0;transition:opacity .12s;}
+.dg-col-num{flex:0 0 76px;width:76px;text-align:right;font-variant-numeric:tabular-nums;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary);}
+.dg-col-size{flex:0 0 92px;width:92px;text-align:right;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums;}
+.dg-col-time{flex:0 0 110px;width:110px;text-align:right;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary);}
+.dg-col-badges{flex:0 0 132px;width:132px;display:flex;gap:4px;align-items:center;flex-wrap:wrap;}
+.dg-actions{display:flex;gap:6px;flex:0 0 220px;width:220px;justify-content:flex-end;opacity:0;transition:opacity .12s;}
 .dg-row:hover .dg-actions,.dg-row:focus-within .dg-actions{opacity:1;}
-.dg-actions .dg-btn{height:22px;line-height:20px;font-size:12px;padding:0 6px;}
-.dg-badge{display:inline-flex;align-items:center;height:18px;padding:0 6px;border:1px solid var(--dsw-alias-border-l2);border-radius:9px;font-size:11px;line-height:16px;color:var(--dsw-alias-label-secondary);white-space:nowrap;}
-.dg-badge.dg-ok{border-color:var(--dsw-alias-state-success-primary);color:var(--dsw-alias-state-success-primary);}
-.dg-badge.dg-warn{border-color:var(--dsw-alias-state-warn-primary);color:var(--dsw-alias-state-warn-primary);}
-.dg-badge.dg-danger{border-color:var(--dsw-alias-state-error-primary);color:var(--dsw-alias-state-error-primary);}
-.dg-badge.dg-idle{border-color:var(--dsw-alias-state-idle-primary);color:var(--dsw-alias-state-idle-primary);}
-.dg-tablewrap{border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-1);overflow:auto;}
+.dg-actions .dg-btn{height:28px;font-size:12px;padding:0 9px;}
+.dg-actions-inline{display:flex;gap:6px;justify-content:flex-end;opacity:0;transition:opacity .12s;}
+.dg-table tbody tr:hover .dg-actions-inline,.dg-table tbody tr:focus-within .dg-actions-inline{opacity:1;}
+.dg-badge{display:inline-flex;align-items:center;height:20px;padding:0 8px;border:.5px solid var(--dsw-alias-border-l2);border-radius:999px;font-size:11px;line-height:18px;color:var(--dsw-alias-label-secondary);white-space:nowrap;}
+.dg-badge.dg-ok{border-color:color-mix(in srgb,var(--dsw-alias-state-success-primary) 55%,transparent);color:var(--dsw-alias-state-success-primary);}
+.dg-badge.dg-warn{border-color:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 55%,transparent);color:var(--dsw-alias-state-warn-primary);}
+.dg-badge.dg-danger{border-color:color-mix(in srgb,var(--dsw-alias-state-error-primary) 55%,transparent);color:var(--dsw-alias-state-error-primary);}
+.dg-badge.dg-idle{border-color:var(--dsw-alias-border-l2);color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));}
+.dg-tablewrap{border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dg-radius-lg);background:var(--dsw-alias-bg-layer-1);overflow:hidden;}
 .dg-table{width:100%;border-collapse:collapse;font-size:13px;}
-.dg-table th{position:sticky;top:0;z-index:1;background:var(--dsw-alias-bg-layer-1);text-align:left;font-weight:500;font-size:12px;color:var(--dsw-alias-label-secondary);padding:0 8px;height:30px;border-bottom:1px solid var(--dsw-alias-border-l1);white-space:nowrap;}
-.dg-table td{height:32px;padding:0 8px;border-bottom:1px solid var(--dsw-alias-border-l1);vertical-align:middle;}
+.dg-table th{position:sticky;top:0;z-index:1;background:var(--dsw-alias-bg-layer-1);text-align:left;font-weight:500;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));padding:11px 14px;border-bottom:.5px solid var(--dsw-alias-border-l2);white-space:nowrap;}
+.dg-table td{padding:12px 14px;min-height:52px;height:52px;border-bottom:.5px solid var(--dsw-alias-border-l2);vertical-align:middle;}
 .dg-table tbody tr:last-child td{border-bottom:0;}
-.dg-table tbody tr:hover td{background:var(--dsw-alias-bg-layer-2);}
+.dg-table tbody tr:hover td{background:var(--dg-hover);}
 .dg-table .dg-num{text-align:right;font-variant-numeric:tabular-nums;}
+.dg-table th.dg-num{text-align:right;}
 .dg-table .dg-nowrap{white-space:nowrap;}
-.dg-table .dg-btn{height:22px;line-height:20px;font-size:12px;padding:0 8px;}
-.dg-actions-cell{display:flex;gap:4px;justify-content:flex-end;}
+.dg-table .dg-btn{height:28px;font-size:12px;padding:0 10px;}
+.dg-actions-cell{display:flex;gap:6px;justify-content:flex-end;}
 .dg-mono{font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;font-size:12px;}
-.dg-strong{font-weight:500;}
-.dg-dim{color:var(--dsw-alias-label-secondary);font-size:12px;}
-.dg-snippet{font-size:12px;color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:520px;}
-.dg-check{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--dsw-alias-label-primary);cursor:pointer;}
-.dg-check input{accent-color:var(--dsw-alias-brand-primary);margin:0;cursor:pointer;}
-.dg-switch{display:flex;align-items:flex-start;gap:10px;padding:6px 0;cursor:pointer;}
+.dg-strong{font-weight:500;font-size:13px;line-height:20px;}
+.dg-dim{color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));font-size:12px;line-height:18px;}
+.dg-snippet{font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:560px;}
+.dg-check{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--dsw-alias-label-primary);cursor:pointer;}
+.dg-check input{accent-color:var(--dsw-alias-brand-primary);margin:0;cursor:pointer;width:15px;height:15px;}
+.dg-switch{display:flex;align-items:flex-start;gap:12px;padding:6px 0;cursor:pointer;}
 .dg-switch > div{flex:1 1 auto;min-width:0;}
-.dg-switch input{appearance:none;-webkit-appearance:none;flex:0 0 auto;width:30px;height:16px;margin:2px 0 0;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-layer-2);position:relative;cursor:pointer;transition:background .12s;}
-.dg-switch input::after{content:"";position:absolute;top:1px;left:1px;width:12px;height:12px;border-radius:50%;background:var(--dsw-alias-bg-base);transition:transform .12s;}
+.dg-switch input{appearance:none;-webkit-appearance:none;flex:0 0 auto;width:36px;height:20px;margin:1px 0 0;border:.5px solid var(--dsw-alias-border-l2);border-radius:999px;background:var(--dsw-alias-bg-layer-2);position:relative;cursor:pointer;transition:background-color .15s,border-color .15s;}
+.dg-switch input::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--dsw-alias-bg-layer-1);transition:transform .15s;}
 .dg-switch input:checked{background:var(--dsw-alias-brand-primary);border-color:var(--dsw-alias-brand-primary);}
-.dg-switch input:checked::after{transform:translateX(14px);}
-.dg-radios{display:flex;flex-wrap:wrap;gap:12px;}
-.dg-mask{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--dsw-alias-bg-overlay);}
-.dg-modal{width:min(680px,100%);max-height:min(84vh,760px);display:flex;flex-direction:column;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-layer-1);overflow:hidden;}
-.dg-modal-head{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--dsw-alias-border-l1);}
-.dg-modal-title{margin:0;font-size:13px;font-weight:600;flex:1 1 auto;}
-.dg-modal-body{padding:14px;overflow:auto;display:flex;flex-direction:column;gap:10px;}
-.dg-modal-foot{display:flex;justify-content:flex-end;gap:8px;padding:10px 14px;border-top:1px solid var(--dsw-alias-border-l1);}
-.dg-banner{display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-layer-1);font-size:12px;}
-.dg-banner > div{flex:1 1 auto;min-width:0;word-break:break-all;}
-.dg-banner.dg-error{border-color:var(--dsw-alias-state-error-primary);color:var(--dsw-alias-state-error-primary);}
-.dg-banner.dg-ok{border-color:var(--dsw-alias-state-success-primary);color:var(--dsw-alias-state-success-primary);}
-.dg-banner.dg-warn{border-color:var(--dsw-alias-state-warn-primary);color:var(--dsw-alias-state-warn-primary);}
+.dg-switch input:checked::after{transform:translateX(16px);}
+.dg-radios{display:flex;flex-wrap:wrap;gap:10px 18px;}
+.dg-mask{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;background:color-mix(in srgb,var(--dsw-alias-bg-base) 55%,transparent);}
+.dg-modal{width:min(720px,100%);max-height:min(86vh,800px);display:flex;flex-direction:column;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dg-radius-xl);background:var(--dsw-alias-bg-layer-1);overflow:hidden;box-shadow:var(--dsw-elevation-prominent,0 12px 32px rgba(0,0,0,.22));}
+.dg-modal-head{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:.5px solid var(--dsw-alias-border-l2);}
+.dg-modal-title{margin:0;font-size:15px;line-height:22px;font-weight:500;flex:1 1 auto;}
+.dg-modal-body{padding:20px;overflow:auto;display:flex;flex-direction:column;gap:14px;}
+.dg-modal-foot{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:.5px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);}
+.dg-banner{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dg-radius-md);background:var(--dsw-alias-bg-layer-2);font-size:12.5px;line-height:18px;}
+.dg-banner > div{flex:1 1 auto;min-width:0;word-break:break-word;}
+.dg-banner.dg-error{border-color:color-mix(in srgb,var(--dsw-alias-state-error-primary) 45%,transparent);background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 8%,transparent);color:var(--dsw-alias-state-error-primary);}
+.dg-banner.dg-ok{border-color:color-mix(in srgb,var(--dsw-alias-state-success-primary) 45%,transparent);background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 8%,transparent);color:var(--dsw-alias-state-success-primary);}
+.dg-banner.dg-warn{border-color:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 45%,transparent);background:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 8%,transparent);color:var(--dsw-alias-state-warn-primary);}
 .dg-banner.dg-info{color:var(--dsw-alias-label-secondary);}
-.dg-empty{padding:26px 12px;text-align:center;}
-.dg-empty-title{font-size:13px;color:var(--dsw-alias-label-primary);}
-.dg-empty-hint{margin-top:4px;font-size:12px;color:var(--dsw-alias-label-secondary);}
-.dg-kv{display:flex;justify-content:space-between;gap:12px;font-size:12px;color:var(--dsw-alias-label-secondary);}
+.dg-empty{padding:44px 20px;text-align:center;}
+.dg-empty-title{font-size:13px;line-height:20px;color:var(--dsw-alias-label-primary);}
+.dg-empty-hint{margin-top:6px;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));}
+.dg-kv{display:flex;justify-content:space-between;gap:14px;font-size:12.5px;line-height:20px;color:var(--dsw-alias-label-secondary);}
 .dg-kv b{font-weight:500;color:var(--dsw-alias-label-primary);}
-.dg-code{padding:1px 4px;border-radius:4px;background:var(--dsw-alias-bg-layer-2);font-family:ui-monospace,Consolas,monospace;font-size:12px;}
-.dg-pre{margin:0;padding:8px;border:1px solid var(--dsw-alias-border-l1);border-radius:6px;background:var(--dsw-alias-bg-base);overflow:auto;max-height:300px;font:12px/1.5 ui-monospace,Consolas,monospace;white-space:pre;color:var(--dsw-alias-label-secondary);}
-.dg-section{border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-1);padding:12px;margin-bottom:10px;}
-.dg-section-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
-.dg-section-title{margin:0;font-size:13px;font-weight:600;flex:1 1 auto;}
-.dg-plainlist{display:flex;flex-direction:column;gap:6px;}
-.dg-listitem{padding:6px 8px;border:1px solid var(--dsw-alias-border-l1);border-radius:6px;}
-.dg-browser-list{max-height:min(44vh,360px);overflow:auto;border:1px solid var(--dsw-alias-border-l1);border-radius:6px;}
-.dg-browser-row{display:flex;align-items:center;gap:8px;width:100%;height:30px;padding:0 8px;border:0;border-bottom:1px solid var(--dsw-alias-border-l1);background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;text-align:left;cursor:pointer;}
+.dg-code{padding:2px 6px;border-radius:var(--dg-radius-sm);background:var(--dsw-alias-bg-layer-2);font-family:ui-monospace,Consolas,monospace;font-size:12px;}
+.dg-pre{margin:0;padding:12px 14px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dg-radius-md);background:var(--dsw-alias-bg-layer-2);overflow:auto;max-height:320px;font:12px/1.6 ui-monospace,Consolas,monospace;white-space:pre;color:var(--dsw-alias-label-secondary);}
+.dg-section{border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dg-radius-lg);background:var(--dsw-alias-bg-layer-1);padding:18px 20px;margin:0;}
+.dg-section-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.dg-section-title{margin:0;font-size:14px;line-height:22px;font-weight:500;flex:1 1 auto;}
+.dg-plainlist{display:flex;flex-direction:column;gap:8px;}
+.dg-listitem{padding:10px 12px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dg-radius-md);}
+.dg-browser-list{max-height:min(46vh,380px);overflow:auto;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dg-radius-md);}
+.dg-browser-row{display:flex;align-items:center;gap:10px;width:100%;min-height:36px;padding:0 12px;border:0;border-bottom:.5px solid var(--dsw-alias-border-l2);background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;text-align:left;cursor:pointer;}
 .dg-browser-row:last-child{border-bottom:0;}
-.dg-browser-row:hover{background:var(--dsw-alias-bg-layer-2);}
+.dg-browser-row:hover{background:var(--dg-hover);}
 .dg-browser-row > span:first-child{flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.dg-audit-row{display:grid;grid-template-columns:150px 130px minmax(0,1fr);gap:8px;padding:6px 0;border-bottom:1px solid var(--dsw-alias-border-l1);font-size:12px;}
+.dg-audit-row{display:grid;grid-template-columns:150px 140px minmax(0,1fr);gap:12px;padding:10px 0;border-bottom:.5px solid var(--dsw-alias-border-l2);font-size:12px;line-height:18px;}
 .dg-audit-row:last-child{border-bottom:0;}
-.dg-collapse{display:flex;align-items:center;gap:6px;width:100%;padding:8px 0;border:0;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;font-weight:500;cursor:pointer;text-align:left;}
+.dg-collapse{display:flex;align-items:center;gap:8px;width:100%;padding:10px 0;border:0;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;font-weight:500;cursor:pointer;text-align:left;}
+.dg-bypass-row{display:flex;align-items:center;flex-wrap:wrap;gap:10px 14px;margin-top:16px;padding-top:16px;border-top:.5px solid var(--dsw-alias-border-l2);}
 `
+
 
     /* ==================================================================== *
      * Shared UI atoms
@@ -584,8 +613,12 @@ window.__ModuleLoader__.load({
     }
 
     function SelectField({ label, hint, value, onChange, options }) {
-      return h(Field, { label, hint }, h('select', { className: 'dg-select', value, onChange: (event) => onChange(event.target.value) },
-        options.map((option) => h('option', { key: option.value, value: option.value }, option.label))))
+      return h(Field, { label, hint }, h('div', { className: 'dg-select-wrap' },
+        h('select', { className: 'dg-select', value, onChange: (event) => onChange(event.target.value) },
+          options.map((option) => h('option', { key: option.value, value: option.value }, option.label))),
+        h('span', { className: 'dg-select-chevron', 'aria-hidden': true },
+          h('svg', { viewBox: '0 0 16 16', width: 14, height: 14, fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' },
+            h('path', { d: 'M4 6.5 8 10.5 12 6.5' })))))
     }
 
     function Checkbox({ checked, onChange, label, title }) {
@@ -613,20 +646,23 @@ window.__ModuleLoader__.load({
     function EmptyState({ title, hint, action }) {
       return h('div', { className: 'dg-empty' }, h('div', { className: 'dg-empty-title' }, title),
         hint ? h('div', { className: 'dg-empty-hint' }, hint) : null,
-        action ? h('div', { style: { marginTop: '10px' } }, action) : null)
+        action ? h('div', { style: { marginTop: '14px' } }, action) : null)
     }
 
     function Loading({ label }) {
       return h(EmptyState, { title: label })
     }
 
-    /** `headers` is an array of `[label, width?]`; `children` holds the `<tr>` rows. */
+    /** `headers` is an array of `[label, width?, align?]`; `children` holds the `<tr>` rows. */
     function Table({ headers, children, empty, emptyHint }) {
       const rows = (Array.isArray(children) ? children : children ? [children] : []).filter(Boolean)
       if (rows.length === 0) return h(EmptyState, { title: empty || '', hint: emptyHint })
       return h('div', { className: 'dg-tablewrap' }, h('table', { className: 'dg-table' },
-        h('thead', null, h('tr', null, headers.map((column, index) =>
-          h('th', { key: index, style: column[1] ? { width: column[1] } : undefined }, column[0])))),
+        h('thead', null, h('tr', null, headers.map((column, index) => h('th', {
+          key: index,
+          className: column[2] === 'right' ? 'dg-num' : undefined,
+          style: column[1] ? { width: column[1] } : undefined,
+        }, column[0])))),
         h('tbody', null, rows)))
     }
 
@@ -948,35 +984,39 @@ window.__ModuleLoader__.load({
 
       const rowActions = (session) => {
         if (renaming && renaming.id === session.id) {
-          return h('div', { className: 'dg-actions', style: { opacity: 1 } },
-            h(Button, { variant: 'primary', onClick: () => submitRename(session) }, t('save')),
-            h(Button, { variant: 'ghost', onClick: () => setRenaming(null) }, t('cancel')))
+          return [
+            h(Button, { key: 'save', variant: 'primary', onClick: () => submitRename(session) }, t('save')),
+            h(Button, { key: 'cancel', variant: 'ghost', onClick: () => setRenaming(null) }, t('cancel')),
+          ]
         }
-        return h('div', { className: 'dg-actions' },
-          h(Button, { onClick: () => openSession(session.id) }, t('open')),
-          h(Button, { onClick: () => setRenaming({ id: session.id, value: session.title || '' }) }, t('rename')),
-          h(Button, { onClick: () => toggleArchive(session) }, session.archived ? t('unarchive') : t('archive')),
-          h(Button, { variant: 'danger', onClick: () => setTrashing(session) }, t('trash')))
+        return [
+          h(Button, { key: 'open', onClick: () => openSession(session.id) }, t('open')),
+          h(Button, { key: 'rename', onClick: () => setRenaming({ id: session.id, value: session.title || '' }) }, t('rename')),
+          h(Button, { key: 'archive', onClick: () => toggleArchive(session) }, session.archived ? t('unarchive') : t('archive')),
+          h(Button, { key: 'trash', variant: 'danger', onClick: () => setTrashing(session) }, t('trash')),
+        ]
       }
 
-      const row = (session) => h('div', { key: session.id, className: 'dg-row', title: session.cwd || undefined },
-        h('div', { className: 'dg-cell-title' },
-          renaming && renaming.id === session.id
-            ? h(Input, {
-                value: renaming.value, inline: true, autoFocus: true, placeholder: t('renamePlaceholder'),
-                onChange: (text) => setRenaming({ id: session.id, value: text }),
-                onKeyDown: (event) => {
-                  if (event.key === 'Enter') submitRename(session)
-                  if (event.key === 'Escape') setRenaming(null)
-                },
-              })
-            : h('span', null, session.title || t('untitled')),
-          h(Checkbox, { checked: selectedIds.includes(session.id), onChange: () => toggleSelected(session.id), label: '', title: t('export') })),
-        h('div', { className: 'dg-col-badges' }, badges(session)),
-        h('div', { className: 'dg-col-num' }, fmtNum(session.messageCount)),
-        h('div', { className: 'dg-col-size' }, fmtBytes(session.sizeBytes)),
-        h('div', { className: 'dg-col-time' }, fmtRel(session.updatedAt, t)),
-        rowActions(session))
+      const row = (session) => h('tr', { key: session.id, title: session.cwd || undefined },
+        h('td', null,
+          h('div', { className: 'dg-cell-title' },
+            h(Checkbox, { checked: selectedIds.includes(session.id), onChange: () => toggleSelected(session.id), label: '' }),
+            renaming && renaming.id === session.id
+              ? h(Input, {
+                  value: renaming.value, inline: true, autoFocus: true, placeholder: t('renamePlaceholder'),
+                  onChange: (text) => setRenaming({ id: session.id, value: text }),
+                  onKeyDown: (event) => {
+                    if (event.key === 'Enter') submitRename(session)
+                    if (event.key === 'Escape') setRenaming(null)
+                  },
+                })
+              : h('span', { className: 'dg-strong' }, session.title || t('untitled'))),
+          h('div', { className: 'dg-dim dg-mono' }, session.id)),
+        h('td', null, h('div', { className: 'dg-col-badges' }, badges(session))),
+        h('td', { className: 'dg-num' }, fmtNum(session.messageCount)),
+        h('td', { className: 'dg-num' }, fmtBytes(session.sizeBytes)),
+        h('td', { className: 'dg-nowrap' }, fmtRel(session.updatedAt, t)),
+        h('td', null, h('div', { className: 'dg-actions-inline' }, rowActions(session))))
 
       const hitRow = (hit) => h('tr', { key: hit.id, title: hit.snippet || undefined },
         h('td', null, h('div', { className: 'dg-strong' }, hit.title || t('untitled'))),
@@ -994,25 +1034,25 @@ window.__ModuleLoader__.load({
             'data-active': workspaceId === workspace.id ? 'true' : undefined, onClick: () => setWorkspaceId(workspace.id),
           },
             h('div', { className: 'dg-side-title' }, h('span', null, workspace.title || t('untitled')),
-              h('span', { className: 'dg-count' }, fmtNum(listOf(workspace.sessionIds).length))),
+              h('span', { className: 'dg-count' }, fmtNum(sessions.filter((entry) => entry.workspaceId === workspace.id).length))),
             h('div', { className: 'dg-side-path' }, workspace.path || '—')))))
-
-      const listHead = h('div', { className: 'dg-rowhead' },
-        h('div', { className: 'dg-cell-title' }, t('title')),
-        h('div', { className: 'dg-col-badges' }, t('status')),
-        h('div', { className: 'dg-col-num' }, t('messages')),
-        h('div', { className: 'dg-col-size' }, t('size')),
-        h('div', { className: 'dg-col-time' }, t('lastActivity')),
-        h('div', { className: 'dg-actions' }))
 
       const sessionList = list.status === 'error'
         ? h(Banner, { kind: 'error' }, errText(list.error))
         : !list.data
           ? h(Loading, { label: t('loading') })
-          : h('div', { className: 'dg-panel' }, listHead,
-            visible.length === 0
-              ? h(EmptyState, { title: t('noSessions'), hint: t('noSessionsHint') })
-              : visible.map(row))
+          : h(Table, {
+            headers: [
+              [t('title')],
+              [t('status'), '140px'],
+              [t('messages'), '92px', 'right'],
+              [t('size'), '100px', 'right'],
+              [t('lastActivity'), '120px'],
+              ['', '230px'],
+            ],
+            empty: t('noSessions'), emptyHint: t('noSessionsHint'),
+            children: visible.map(row),
+          })
 
       const searchResults = h('div', null,
         search.status === 'error' ? h(Banner, { kind: 'error' }, errText(search.error)) : null,
@@ -1282,7 +1322,7 @@ window.__ModuleLoader__.load({
 
       return h('div', null,
         h(Banner, { kind: 'info' }, t('trashHint')),
-        h('div', { className: 'dg-toolbar', style: { marginTop: '10px' } },
+        h('div', { className: 'dg-toolbar', style: { marginTop: '14px' } },
           h(Button, { variant: 'primary', disabled: checked.length === 0 || action.busy, onClick: restoreSelected },
             `${t('restoreSelected')} (${checked.length})`),
           h(Button, { variant: 'danger', disabled: checked.length === 0, onClick: () => setPurging(checked.slice()) },
@@ -1303,7 +1343,7 @@ window.__ModuleLoader__.load({
                 onChange: (event) => setChecked(event.target.checked ? items.map((entry) => entry.id) : []),
                 style: { accentColor: 'var(--dsw-alias-brand-primary)' },
               }), '28px'],
-              [t('title')], [t('trashSource'), '96px'], [t('size'), '90px'], [t('movedAt'), '150px'], [t('expiresAt'), '110px']],
+              [t('title')], [t('trashSource'), '108px'], [t('size'), '96px', 'right'], [t('movedAt'), '160px'], [t('expiresAt'), '120px']],
               empty: t('trashEmpty'), emptyHint: t('trashEmptyHint'), children: rows,
             }),
         purging ? h(PurgeDialog, {
@@ -1432,7 +1472,7 @@ window.__ModuleLoader__.load({
                 h(Checkbox, { checked: modules.uiPrefs, onChange: (value) => setModule('uiPrefs', value), label: t('modUiPrefs') }),
                 h(Checkbox, { checked: modules.credentials, onChange: (value) => setModule('credentials', value), label: t('modCredentials') }))),
             modules.credentials ? h('div', { className: 'dg-hint dg-danger', style: { gridColumn: '1/-1' } }, t('credentialsNote')) : null),
-          h('div', { style: { marginTop: '10px', display: 'flex', gap: '8px' } },
+          h('div', { style: { marginTop: '16px', display: 'flex', gap: '10px', alignItems: 'center' } },
             h(Button, { variant: 'primary', disabled: action.busy, onClick: create }, t('snapshotNow')),
             h(Button, { onClick: () => list.reload(), disabled: list.status === 'loading' }, t('refresh')))),
         action.error ? h(Banner, { kind: 'error' }, errText(action.error)) : null,
@@ -1440,8 +1480,8 @@ window.__ModuleLoader__.load({
         list.status === 'error' ? h(Banner, { kind: 'error' }, errText(list.error))
           : !list.data ? h(Loading, { label: t('loading') })
             : h(Table, {
-              headers: [[t('snapshotLabel')], [t('snapshotTime'), '150px'], [t('snapshotKind'), '120px'], [t('size'), '90px'],
-                [t('filesCount'), '80px'], [t('snapshotSecrets'), '90px'], ['', '250px']],
+              headers: [[t('snapshotLabel')], [t('snapshotTime'), '160px'], [t('snapshotKind'), '130px'], [t('size'), '100px', 'right'],
+                [t('filesCount'), '88px', 'right'], [t('snapshotSecrets'), '96px'], ['', '260px']],
               empty: t('snapshotEmpty'), emptyHint: t('snapshotEmptyHint'), children: rows,
             }),
         diffId ? h(DiffDialog, { ctx, t, id: diffId, onClose: () => setDiffId(null) }) : null,
@@ -1599,8 +1639,8 @@ window.__ModuleLoader__.load({
         list.status === 'error' ? h(Banner, { kind: 'error' }, errText(list.error))
           : !list.data ? h(Loading, { label: t('loading') })
             : h(Table, {
-              headers: [[t('snapshotTime')], [t('backupKind'), '80px'], [t('size'), '90px'], [t('sha256'), '130px'],
-                [t('backupContents')], [t('status'), '110px'], ['', '180px']],
+              headers: [[t('snapshotTime')], [t('backupKind'), '92px'], [t('size'), '100px', 'right'], [t('sha256'), '140px'],
+                [t('backupContents')], [t('status'), '110px'], ['', '190px']],
               empty: t('backupEmpty'), emptyHint: t('backupEmptyHint'), children: rows,
             }),
         restoring ? h(Confirm, {
@@ -1631,6 +1671,7 @@ window.__ModuleLoader__.load({
       const [draft, setDraft] = useState(null)
       const [baseline, setBaseline] = useState(null)
       const [auditOpen, setAuditOpen] = useState(false)
+      const [bypassOpen, setBypassOpen] = useState(false)
       const [browsing, setBrowsing] = useState(false)
       const action = useAction()
       useReportStatus(onStatus, req)
@@ -1664,6 +1705,13 @@ window.__ModuleLoader__.load({
           setDraft({ ...value.settings })
           setBaseline({ ...value.settings })
         }
+      }
+
+      async function setBypass(minutes) {
+        await action.run(async () => {
+          await callHost(ctx, 'settings.bypass', { minutes })
+          await req.reload()
+        }, minutes === 0 ? t('bypassDisabled') : t('bypassEnabled'))
       }
 
       if (req.status === 'error') {
@@ -1716,7 +1764,23 @@ window.__ModuleLoader__.load({
           h('div', { className: 'dg-grid' },
             h(Switch, { checked: draft.safeDeleteEnabled, onChange: (value) => update('safeDeleteEnabled', value), label: t('safeDelete'), hint: t('safeDeleteHint') }),
             h(Switch, { checked: draft.fileTrashEnabled, onChange: (value) => update('fileTrashEnabled', value), label: t('fileTrash'), hint: t('fileTrashHint') }),
-            h(Switch, { checked: draft.snapshotOnImport, onChange: (value) => update('snapshotOnImport', value), label: t('snapshotOnImport') }))),
+            h(Switch, { checked: draft.snapshotOnImport, onChange: (value) => update('snapshotOnImport', value), label: t('snapshotOnImport') })),
+          h('div', { className: 'dg-bypass-row' },
+            (() => {
+              const until = Number(source.bypassUntil ?? 0)
+              const active = until > Number(source.now ?? Date.now())
+              return [
+                h(Button, {
+                  key: 'bypass',
+                  variant: active ? 'ghost' : 'danger',
+                  disabled: action.busy,
+                  onClick: () => (active ? setBypass(0) : setBypassOpen(true)),
+                }, active ? t('bypassBack') : t('bypassEnable')),
+                h('span', { key: 'state', className: cx('dg-badge', active ? 'dg-danger' : 'dg-idle') },
+                  active ? `${t('bypassActive')} ${fmtTime(until)}` : t('bypassIdle')),
+                h('span', { key: 'hint', className: 'dg-hint' }, t('bypassHint')),
+              ]
+            })())),
         h(Section, {
           title: t('escapeHatch'),
           extra: h(Badge, { kind: source.envEscapeHatch ? 'danger' : 'idle' }, source.envEscapeHatch ? t('escapeOn') : t('escapeOff')),
@@ -1735,6 +1799,13 @@ window.__ModuleLoader__.load({
         h('button', { type: 'button', className: 'dg-collapse', onClick: () => setAuditOpen(!auditOpen) },
           h('span', null, auditOpen ? '▾' : '▸'), h('span', null, t('audit')), h('span', { className: 'dg-hint' }, t('auditHint'))),
         auditOpen ? h(AuditSection, { ctx, t }) : null,
+        bypassOpen ? h(Confirm, {
+          title: t('bypassConfirmTitle'), text: t('bypassConfirmBody'),
+          confirmLabel: t('bypassConfirmAction'), cancelLabel: t('cancel'),
+          destructive: true, busy: action.busy,
+          onConfirm: async () => { setBypassOpen(false); await setBypass(30) },
+          onClose: () => setBypassOpen(false),
+        }) : null,
         browsing ? h(FileBrowser, {
           ctx, t, mode: 'dir', startPath: draft.backupRoot || '',
           onPick: (picked) => { update('backupRoot', picked); setBrowsing(false) },
