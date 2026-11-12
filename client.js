@@ -207,6 +207,21 @@ window.__ModuleLoader__.load({
       ],
       openError: ['无法打开会话：uiWorkspace 服务不可用', 'Cannot open session: uiWorkspace is unavailable'],
       selectedCount: ['已选', 'selected'],
+      clearSelection: ['清除选择', 'Clear selection'],
+      archiveSelected: ['归档选中', 'Archive selected'],
+      archiveSelectedTitle: ['归档选中的会话？', 'Archive the selected sessions?'],
+      archiveSelectedBody: [
+        '这些会话会从工作区分组中隐藏，日志与文件都会保留，随时可以取消归档。',
+        'The sessions are hidden from workspace grouping; logs and files stay, and unarchiving restores them at any time.',
+      ],
+      archivedSelected: ['已归档会话', 'Archived sessions'],
+      trashSelected: ['移入回收站', 'Move to recycle bin'],
+      trashSelectedTitle: ['把选中的会话移入回收站？', 'Move the selected sessions to the recycle bin?'],
+      trashSelectedBody: [
+        '会话目录会被移动到 guardian 回收站（同盘原子移动，不复制、不改写日志），子代理会话一并移动；可随时从这里恢复。',
+        'Session directories move into the guardian recycle bin (an atomic same-volume move, no copy and no log rewrite); subagent children move with them and everything stays recoverable.',
+      ],
+      trashedSelected: ['已移入回收站的会话', 'Sessions moved to the recycle bin'],
 
       // export / import
       export: ['导出', 'Export'],
@@ -540,11 +555,11 @@ window.__ModuleLoader__.load({
 .dg-dim{color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));font-size:12px;line-height:18px;}
 .dg-snippet{font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:560px;}
 .dg-check{display:inline-flex;align-items:center;gap:9px;font-size:13px;line-height:20px;color:var(--dsw-alias-label-primary);cursor:pointer;white-space:nowrap;}
-.dg-check input{appearance:none;-webkit-appearance:none;flex:0 0 auto;width:18px;height:18px;margin:0;border:.5px solid var(--dsw-alias-border-l3,var(--dsw-alias-border-l2));border-radius:5px;background:var(--dsw-alias-bg-layer-1);position:relative;cursor:pointer;transition:background-color .12s,border-color .12s;}
-.dg-check input:hover{border-color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));}
-.dg-check input:checked{background:var(--dsw-alias-brand-primary);border-color:var(--dsw-alias-brand-primary);}
-.dg-check input:checked::after{content:"";position:absolute;left:5px;top:2px;width:6px;height:10px;border:solid var(--dsw-alias-label-primary-foreground,#fff);border-width:0 2px 2px 0;transform:rotate(45deg);}
-.dg-check input:focus-visible{outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-brand-primary));outline-offset:1px;}
+.dg-check input,.dg-table input[type=checkbox]{appearance:none;-webkit-appearance:none;flex:0 0 auto;width:18px;height:18px;margin:0;border:.5px solid var(--dsw-alias-border-l3,var(--dsw-alias-border-l2));border-radius:5px;background:var(--dsw-alias-bg-layer-1);position:relative;cursor:pointer;transition:background-color .12s,border-color .12s;}
+.dg-check input:hover,.dg-table input[type=checkbox]:hover{border-color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));}
+.dg-check input:checked,.dg-table input[type=checkbox]:checked{background:var(--dsw-alias-brand-primary);border-color:var(--dsw-alias-brand-primary);}
+.dg-check input:checked::after,.dg-table input[type=checkbox]:checked::after{content:"";position:absolute;left:5px;top:2px;width:6px;height:10px;border:solid var(--dsw-alias-label-primary-foreground,#fff);border-width:0 2px 2px 0;transform:rotate(45deg);}
+.dg-check input:focus-visible,.dg-table input[type=checkbox]:focus-visible{outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-brand-primary));outline-offset:1px;}
 .dg-modules{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;min-height:36px;}
 .dg-switch{display:flex;align-items:flex-start;gap:12px;padding:6px 0;cursor:pointer;}
 .dg-switch > div{flex:1 1 auto;min-width:0;}
@@ -645,7 +660,7 @@ window.__ModuleLoader__.load({
     function Checkbox({ checked, onChange, label, title }) {
       return h('label', { className: 'dg-check', title },
         h('input', { type: 'checkbox', checked: checked === true, onChange: (event) => onChange(event.target.checked) }),
-        h('span', null, label))
+        label ? h('span', null, label) : null)
     }
 
     function Switch({ checked, onChange, label, hint, danger }) {
@@ -947,6 +962,8 @@ window.__ModuleLoader__.load({
       const [selectedIds, setSelectedIds] = useState([])
       const [renaming, setRenaming] = useState(null)
       const [trashing, setTrashing] = useState(null)
+      const [bulkTrash, setBulkTrash] = useState(false)
+      const [bulkArchive, setBulkArchive] = useState(false)
       const [dialog, setDialog] = useState(null)
       const action = useAction()
 
@@ -1017,6 +1034,30 @@ window.__ModuleLoader__.load({
           await callHost(ctx, 'sessions.trash', { sessionIds: [session.id] })
           await list.reload()
         }, t('movedToTrash'))
+      }
+
+      async function archiveSelected() {
+        const ids = selectedIds.slice()
+        setBulkArchive(false)
+        if (ids.length === 0) return
+        await action.run(async () => {
+          for (const id of ids) await callHost(ctx, 'sessions.archive', { sessionId: id, archived: true })
+          setSelectedIds([])
+          await list.reload()
+          return ids.length
+        }, (count) => `${t('archivedSelected')} ${fmtNum(count)}`)
+      }
+
+      async function trashSelected() {
+        const ids = selectedIds.slice()
+        setBulkTrash(false)
+        if (ids.length === 0) return
+        await action.run(async () => {
+          const result = await callHost(ctx, 'sessions.trash', { sessionIds: ids })
+          setSelectedIds([])
+          await list.reload()
+          return result
+        }, (result) => `${t('trashedSelected')} ${fmtNum(ids.length)} · ${t('trash')} · ${fmtNum(listOf(result && result.entries).length)}`)
       }
 
       const badges = (session) => [
@@ -1118,6 +1159,11 @@ window.__ModuleLoader__.load({
           h(Input, { value: query, onChange: setQuery, placeholder: t('searchPlaceholder'), ariaLabel: t('search'), grow: true }),
           searching ? h(Button, { variant: 'ghost', onClick: () => setQuery('') }, t('clearSearch')) : null,
           h('div', { className: 'dg-spacer' }),
+          selectedIds.length > 0 ? h(Button, { variant: 'ghost', onClick: () => setSelectedIds([]) }, t('clearSelection')) : null,
+          selectedIds.length > 0 ? h(Button, { variant: 'danger', disabled: busy, onClick: () => setBulkTrash(true) },
+            `${t('trashSelected')} (${fmtNum(selectedIds.length)})`) : null,
+          selectedIds.length > 0 ? h(Button, { disabled: busy, onClick: () => setBulkArchive(true) },
+            `${t('archiveSelected')} (${fmtNum(selectedIds.length)})`) : null,
           h(Button, { onClick: () => setDialog('export') }, t('export')),
           h(Button, { onClick: () => setDialog('import') }, t('import')),
           h(Button, { onClick: () => list.reload(), disabled: busy }, t('refresh'))),
@@ -1133,6 +1179,20 @@ window.__ModuleLoader__.load({
           title: t('trashConfirmTitle'), text: t('trashConfirmBody'), confirmLabel: t('trash'), cancelLabel: t('cancel'),
           busy: action.busy, onConfirm: confirmTrash, onClose: () => setTrashing(null),
           children: h('div', { className: 'dg-strong' }, trashing.title || t('untitled')),
+        }) : null,
+        bulkArchive ? h(Confirm, {
+          title: t('archiveSelectedTitle'), text: t('archiveSelectedBody'),
+          confirmLabel: t('archive'), cancelLabel: t('cancel'), busy: action.busy,
+          onConfirm: archiveSelected, onClose: () => setBulkArchive(false),
+          children: h('div', { className: 'dg-strong' }, `${t('selectedCount')}: ${fmtNum(selectedIds.length)}`),
+        }) : null,
+        bulkTrash ? h(Confirm, {
+          title: t('trashSelectedTitle'), text: t('trashSelectedBody'),
+          confirmLabel: t('trash'), cancelLabel: t('cancel'), destructive: true, busy: action.busy,
+          onConfirm: trashSelected, onClose: () => setBulkTrash(false),
+          children: h('div', null,
+            h('div', { className: 'dg-strong' }, `${t('selectedCount')}: ${fmtNum(selectedIds.length)}`),
+            h('div', { className: 'dg-hint' }, listOf(visible.filter((row) => selectedIds.includes(row.id)).map((row) => row.title)).slice(0, 6).join(' · '))),
         }) : null,
         dialog === 'export' ? h(ExportDialog, {
           ctx, t, sessions, activeWorkspace, selectedIds, onClose: () => setDialog(null),
@@ -1350,10 +1410,10 @@ window.__ModuleLoader__.load({
       }
 
       const rows = items.map((entry) => h('tr', { key: entry.id },
-        h('td', { style: { width: '28px' } },
+        h('td', null,
           h('input', {
             type: 'checkbox', checked: checked.includes(entry.id), onChange: () => toggle(entry.id),
-            'aria-label': entry.id, style: { accentColor: 'var(--dsw-alias-brand-primary)' },
+            'aria-label': entry.id,
           })),
         h('td', null,
           h('div', { className: 'dg-strong' }, listOf(entry.titles).filter(Boolean).join(' / ') || t('untitled')),
@@ -1386,7 +1446,7 @@ window.__ModuleLoader__.load({
                 type: 'checkbox', checked: allChecked,
                 onChange: (event) => setChecked(event.target.checked ? items.map((entry) => entry.id) : []),
                 style: { accentColor: 'var(--dsw-alias-brand-primary)' },
-              }), '28px'],
+              }), '52px'],
               [t('title')], [t('trashSource'), '108px'], [t('size'), '96px', 'right'], [t('movedAt'), '160px'], [t('expiresAt'), '120px']],
               empty: t('trashEmpty'), emptyHint: t('trashEmptyHint'), children: rows,
             }),
