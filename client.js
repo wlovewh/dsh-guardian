@@ -510,7 +510,7 @@ window.__ModuleLoader__.load({
 .dg-col-num{flex:0 0 76px;width:76px;text-align:right;font-variant-numeric:tabular-nums;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary);}
 .dg-col-size{flex:0 0 92px;width:92px;text-align:right;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums;}
 .dg-col-time{flex:0 0 110px;width:110px;text-align:right;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary);}
-.dg-col-badges{flex:0 0 132px;width:132px;display:flex;gap:4px;align-items:center;flex-wrap:wrap;}
+.dg-col-badges{display:flex;flex-wrap:wrap;gap:4px;align-items:center;min-width:0;}
 .dg-actions{display:flex;gap:6px;flex:0 0 220px;width:220px;justify-content:flex-end;opacity:0;transition:opacity .12s;}
 .dg-row:hover .dg-actions,.dg-row:focus-within .dg-actions{opacity:1;}
 .dg-actions .dg-btn{height:28px;font-size:12px;padding:0 9px;}
@@ -1092,7 +1092,7 @@ window.__ModuleLoader__.load({
               [t('messages'), '84px', 'right'],
               [t('size'), '96px', 'right'],
               [t('lastActivity'), '112px'],
-              ['', '252px'],
+              ['', '280px'],
             ],
             empty: t('noSessions'), emptyHint: t('noSessionsHint'),
             children: visible.map(row),
