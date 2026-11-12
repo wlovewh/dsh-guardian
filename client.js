@@ -399,6 +399,12 @@ window.__ModuleLoader__.load({
       bypassConfirmAction: ['确认放行', 'Bypass'],
       bypassEnabled: ['已临时放行 30 分钟', 'Bypassed for 30 minutes'],
       bypassDisabled: ['已恢复删除拦截', 'Interception restored'],
+      toastSection: ['操作提示', 'Notices'],
+      toastPosition: ['提示位置', 'Notice position'],
+      toastTop: ['顶部居中', 'Top center'],
+      toastBottom: ['底部居中', 'Bottom center'],
+      toastSeconds: ['显示时长（秒）', 'Duration (seconds)'],
+      toastHint: ['操作成功后的提示会以浮动圆角提示框出现，到时自动消失，也可点 ✕ 立即关闭。', 'Success notices appear as a floating rounded toast, disappear after the duration, and can be dismissed with ✕.'],
       snapshotOnImport: ['导入前自动快照', 'Snapshot before import'],
       settingsSaved: ['设置已保存', 'Settings saved'],
       settingsNoChanges: ['没有需要保存的修改', 'No changes to save'],
@@ -440,10 +446,10 @@ window.__ModuleLoader__.load({
 .dg-head-actions{margin-left:auto;display:flex;align-items:center;gap:10px;flex:0 0 auto;}
 .dg-status{font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary);white-space:nowrap;max-width:320px;overflow:hidden;text-overflow:ellipsis;}
 .dg-status.dg-err{color:var(--dsw-alias-state-error-primary);}
-.dg-tabs{display:inline-flex;align-self:flex-start;gap:4px;margin:0 24px 6px;padding:4px;border-radius:var(--dg-radius-md);background:var(--dsw-alias-bg-layer-2);}
-.dg-tab{height:32px;padding:0 14px;border:.5px solid transparent;border-radius:var(--dg-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:13px;line-height:20px;cursor:pointer;white-space:nowrap;transition:background-color .12s,color .12s;}
-.dg-tab:hover{color:var(--dsw-alias-label-primary);background:var(--dg-hover);}
-.dg-tab[data-active="true"]{background:var(--dsw-alias-bg-layer-1);border-color:var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);font-weight:500;}
+.dg-tabs{display:inline-flex;align-self:flex-start;flex-wrap:wrap;gap:8px 12px;margin:4px 24px 2px;}
+.dg-tab{display:inline-flex;align-items:center;height:30px;padding:0 12px;border:0;border-radius:15px;background:transparent;color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));font:inherit;font-size:14px;line-height:22px;cursor:pointer;white-space:nowrap;transition:background-color .12s,color .12s;}
+.dg-tab:hover{background:var(--dg-hover);color:var(--dsw-alias-label-primary);}
+.dg-tab[data-active="true"]{background:var(--dg-hover);color:var(--dsw-alias-label-primary);font-weight:500;}
 .dg-body{flex:1;min-height:0;overflow:auto;padding:14px 24px 32px;display:flex;flex-direction:column;gap:16px;}
 .dg-body > div{display:flex;flex-direction:column;gap:16px;min-width:0;}
 .dg-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;}
@@ -515,23 +521,31 @@ window.__ModuleLoader__.load({
 .dg-badge.dg-warn{border-color:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 55%,transparent);color:var(--dsw-alias-state-warn-primary);}
 .dg-badge.dg-danger{border-color:color-mix(in srgb,var(--dsw-alias-state-error-primary) 55%,transparent);color:var(--dsw-alias-state-error-primary);}
 .dg-badge.dg-idle{border-color:var(--dsw-alias-border-l2);color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));}
-.dg-tablewrap{border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dg-radius-lg);background:var(--dsw-alias-bg-layer-1);overflow:hidden;}
-.dg-table{width:100%;border-collapse:collapse;font-size:13px;}
-.dg-table th{position:sticky;top:0;z-index:1;background:var(--dsw-alias-bg-layer-1);text-align:left;font-weight:500;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));padding:11px 14px;border-bottom:.5px solid var(--dsw-alias-border-l2);white-space:nowrap;}
-.dg-table td{padding:12px 14px;min-height:52px;height:52px;border-bottom:.5px solid var(--dsw-alias-border-l2);vertical-align:middle;}
+.dg-tablewrap{border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dg-radius-lg);background:var(--dsw-alias-bg-layer-1);overflow:auto;}
+.dg-table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:13px;}
+.dg-table th{position:sticky;top:0;z-index:1;background:var(--dsw-alias-bg-layer-1);text-align:left;font-weight:500;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));padding:11px 14px;border-bottom:.5px solid var(--dsw-alias-border-l2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dg-table td{padding:12px 14px;min-height:52px;border-bottom:.5px solid var(--dsw-alias-border-l2);vertical-align:middle;overflow:hidden;}
 .dg-table tbody tr:last-child td{border-bottom:0;}
 .dg-table tbody tr:hover td{background:var(--dg-hover);}
-.dg-table .dg-num{text-align:right;font-variant-numeric:tabular-nums;}
+.dg-table .dg-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
 .dg-table th.dg-num{text-align:right;}
-.dg-table .dg-nowrap{white-space:nowrap;}
+.dg-table .dg-nowrap{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dg-table .dg-cell-title{min-width:0;overflow:hidden;}
+.dg-table .dg-cell-title > .dg-strong,.dg-table .dg-cell-title > span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dg-table .dg-dim.dg-mono{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dg-table .dg-btn{height:28px;font-size:12px;padding:0 10px;}
 .dg-actions-cell{display:flex;gap:6px;justify-content:flex-end;}
 .dg-mono{font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;font-size:12px;}
 .dg-strong{font-weight:500;font-size:13px;line-height:20px;}
 .dg-dim{color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));font-size:12px;line-height:18px;}
 .dg-snippet{font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:560px;}
-.dg-check{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--dsw-alias-label-primary);cursor:pointer;}
-.dg-check input{accent-color:var(--dsw-alias-brand-primary);margin:0;cursor:pointer;width:15px;height:15px;}
+.dg-check{display:inline-flex;align-items:center;gap:9px;font-size:13px;line-height:20px;color:var(--dsw-alias-label-primary);cursor:pointer;white-space:nowrap;}
+.dg-check input{appearance:none;-webkit-appearance:none;flex:0 0 auto;width:18px;height:18px;margin:0;border:.5px solid var(--dsw-alias-border-l3,var(--dsw-alias-border-l2));border-radius:5px;background:var(--dsw-alias-bg-layer-1);position:relative;cursor:pointer;transition:background-color .12s,border-color .12s;}
+.dg-check input:hover{border-color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));}
+.dg-check input:checked{background:var(--dsw-alias-brand-primary);border-color:var(--dsw-alias-brand-primary);}
+.dg-check input:checked::after{content:"";position:absolute;left:5px;top:2px;width:6px;height:10px;border:solid var(--dsw-alias-label-primary-foreground,#fff);border-width:0 2px 2px 0;transform:rotate(45deg);}
+.dg-check input:focus-visible{outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-brand-primary));outline-offset:1px;}
+.dg-modules{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;min-height:36px;}
 .dg-switch{display:flex;align-items:flex-start;gap:12px;padding:6px 0;cursor:pointer;}
 .dg-switch > div{flex:1 1 auto;min-width:0;}
 .dg-switch input{appearance:none;-webkit-appearance:none;flex:0 0 auto;width:36px;height:20px;margin:1px 0 0;border:.5px solid var(--dsw-alias-border-l2);border-radius:999px;background:var(--dsw-alias-bg-layer-2);position:relative;cursor:pointer;transition:background-color .15s,border-color .15s;}
@@ -572,6 +586,13 @@ window.__ModuleLoader__.load({
 .dg-audit-row:last-child{border-bottom:0;}
 .dg-collapse{display:flex;align-items:center;gap:8px;width:100%;padding:10px 0;border:0;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;font-weight:500;cursor:pointer;text-align:left;}
 .dg-bypass-row{display:flex;align-items:center;flex-wrap:wrap;gap:10px 14px;margin-top:16px;padding-top:16px;border-top:.5px solid var(--dsw-alias-border-l2);}
+.dg-toast{position:fixed;left:50%;z-index:80;display:flex;align-items:center;gap:12px;min-height:44px;max-width:min(560px,calc(100vw - 48px));padding:10px 12px 10px 18px;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dg-radius-lg);background:var(--dsw-alias-bg-overlay,var(--dsw-alias-bg-layer-1));box-shadow:var(--dsw-elevation-prominent,0 10px 28px rgba(0,0,0,.18));color:var(--dsw-alias-label-primary);font-size:13px;line-height:20px;transform:translateX(-50%);animation:dg-toast-in .18s ease-out;}
+.dg-toast.dg-toast-top{top:24px;}
+.dg-toast.dg-toast-bottom{bottom:32px;}
+.dg-toast-text{flex:1 1 auto;min-width:0;display:flex;align-items:center;word-break:break-word;}
+.dg-toast-close{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border:0;border-radius:var(--dg-radius-sm);background:transparent;color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));font:inherit;font-size:12px;cursor:pointer;}
+.dg-toast-close:hover{background:var(--dg-hover);color:var(--dsw-alias-label-primary);}
+@keyframes dg-toast-in{from{opacity:0;transform:translate(-50%,-6px)}to{opacity:1;transform:translate(-50%,0)}}
 `
 
 
@@ -641,6 +662,27 @@ window.__ModuleLoader__.load({
     function Banner({ kind, children, onDismiss }) {
       return h('div', { className: cx('dg-banner', kind || 'info') }, h('div', null, children),
         onDismiss ? h(Button, { variant: 'ghost', onClick: onDismiss }, '✕') : null)
+    }
+
+    /**
+     * Transient confirmation shown above (or below) the panel, dismissed by its own
+     * timer. Position and lifetime come from settings so users can move it.
+     */
+    function Toast({ text, position, seconds, onDone }) {
+      useEffect(() => {
+        if (!text) return undefined
+        const lifetime = Math.max(1, Math.min(15, Number(seconds) || 3)) * 1000
+        const timer = setTimeout(() => { if (onDone) onDone() }, lifetime)
+        return () => clearTimeout(timer)
+      }, [text, seconds])
+      if (!text) return null
+      return h('div', {
+        className: cx('dg-toast', position === 'bottom' ? 'dg-toast-bottom' : 'dg-toast-top'),
+        role: 'status',
+        'aria-live': 'polite',
+      },
+        h('span', { className: 'dg-toast-text' }, text),
+        h('button', { type: 'button', className: 'dg-toast-close', onClick: onDone, 'aria-label': 'dismiss' }, '✕'))
     }
 
     function EmptyState({ title, hint, action }) {
@@ -898,7 +940,7 @@ window.__ModuleLoader__.load({
      * Tab 1 — sessions
      * ==================================================================== */
 
-    function SessionsTab({ ctx, t, nonce, onStatus }) {
+    function SessionsTab({ ctx, t, nonce, onStatus, toast }) {
       const [query, setQuery] = useState('')
       const [debounced, setDebounced] = useState('')
       const [workspaceId, setWorkspaceId] = useState('')
@@ -940,7 +982,9 @@ window.__ModuleLoader__.load({
           return
         }
         try {
-          const result = workspace.openSession({ kind: 'session', sessionId: id })
+          // `openSession` takes the SessionId itself; an object target falls back to
+          // a brand-new session, which is what made "打开" land on a blank draft.
+          const result = workspace.openSession(id)
           if (result && typeof result.catch === 'function') result.catch((error) => action.setError(error))
         } catch (error) {
           action.setError(error)
@@ -1044,11 +1088,11 @@ window.__ModuleLoader__.load({
           : h(Table, {
             headers: [
               [t('title')],
-              [t('status'), '140px'],
-              [t('messages'), '92px', 'right'],
-              [t('size'), '100px', 'right'],
-              [t('lastActivity'), '120px'],
-              ['', '230px'],
+              [t('status'), '112px'],
+              [t('messages'), '84px', 'right'],
+              [t('size'), '96px', 'right'],
+              [t('lastActivity'), '112px'],
+              ['', '252px'],
             ],
             empty: t('noSessions'), emptyHint: t('noSessionsHint'),
             children: visible.map(row),
@@ -1083,7 +1127,7 @@ window.__ModuleLoader__.load({
           h('span', null, `${t('diskUsage')}: `, h('b', null, fmtBytes(totals.bytes))),
           selectedIds.length > 0 ? h('span', null, `${t('selectedCount')}: `, h('b', null, fmtNum(selectedIds.length))) : null),
         action.error ? h(Banner, { kind: 'error' }, errText(action.error)) : null,
-        action.notice ? h(Banner, { kind: 'ok', onDismiss: () => action.setNotice(null) }, action.notice) : null,
+        h(Toast, { text: action.notice, position: toast && toast.position, seconds: toast && toast.seconds, onDone: () => action.setNotice(null) }),
         searching ? searchResults : h('div', { className: 'dg-split' }, sideList, h('div', { className: 'dg-main' }, sessionList)),
         trashing ? h(Confirm, {
           title: t('trashConfirmTitle'), text: t('trashConfirmBody'), confirmLabel: t('trash'), cancelLabel: t('cancel'),
@@ -1270,7 +1314,7 @@ window.__ModuleLoader__.load({
         : source === 'import-guard' ? t('sourceImportGuard')
           : source === 'manual' ? t('sourceManual') : t('sourcePanel')
 
-    function TrashTab({ ctx, t, nonce, onStatus }) {
+    function TrashTab({ ctx, t, nonce, onStatus, toast }) {
       const list = useRequest(ctx, 'trash.list', {}, [nonce])
       const [checked, setChecked] = useState([])
       const [purging, setPurging] = useState(null)
@@ -1334,7 +1378,7 @@ window.__ModuleLoader__.load({
           h('span', { className: 'dg-hint' }, `${t('totalBytes')}: ${fmtBytes(data.totalBytes)}`),
           h(Button, { onClick: () => list.reload(), disabled: list.status === 'loading' }, t('refresh'))),
         action.error ? h(Banner, { kind: 'error' }, errText(action.error)) : null,
-        action.notice ? h(Banner, { kind: 'ok', onDismiss: () => action.setNotice(null) }, action.notice) : null,
+        h(Toast, { text: action.notice, position: toast && toast.position, seconds: toast && toast.seconds, onDone: () => action.setNotice(null) }),
         list.status === 'error' ? h(Banner, { kind: 'error' }, errText(list.error))
           : !list.data ? h(Loading, { label: t('loading') })
             : h(Table, {
@@ -1398,7 +1442,7 @@ window.__ModuleLoader__.load({
         : kind === 'auto-with-backup' ? t('kindWithBackup')
           : kind === 'auto-before-import' ? t('kindBeforeImport') : t('kindManual')
 
-    function SnapshotsTab({ ctx, t, nonce, onStatus }) {
+    function SnapshotsTab({ ctx, t, nonce, onStatus, toast }) {
       const list = useRequest(ctx, 'snapshot.list', {}, [nonce])
       const [label, setLabel] = useState('')
       const [modules, setModules] = useState({ pluginSources: true, skills: true, uiPrefs: true, credentials: false })
@@ -1466,7 +1510,7 @@ window.__ModuleLoader__.load({
             h(Field, { label: t('snapshotLabel') },
               h(Input, { value: label, onChange: setLabel, placeholder: t('snapshotLabelPlaceholder') })),
             h(Field, { label: t('snapshotModules') },
-              h('div', { className: 'dg-inline-gap' },
+              h('div', { className: 'dg-modules' },
                 h(Checkbox, { checked: modules.pluginSources, onChange: (value) => setModule('pluginSources', value), label: t('modPluginSources') }),
                 h(Checkbox, { checked: modules.skills, onChange: (value) => setModule('skills', value), label: t('modSkills') }),
                 h(Checkbox, { checked: modules.uiPrefs, onChange: (value) => setModule('uiPrefs', value), label: t('modUiPrefs') }),
@@ -1476,7 +1520,7 @@ window.__ModuleLoader__.load({
             h(Button, { variant: 'primary', disabled: action.busy, onClick: create }, t('snapshotNow')),
             h(Button, { onClick: () => list.reload(), disabled: list.status === 'loading' }, t('refresh')))),
         action.error ? h(Banner, { kind: 'error' }, errText(action.error)) : null,
-        action.notice ? h(Banner, { kind: 'ok', onDismiss: () => action.setNotice(null) }, action.notice) : null,
+        h(Toast, { text: action.notice, position: toast && toast.position, seconds: toast && toast.seconds, onDone: () => action.setNotice(null) }),
         list.status === 'error' ? h(Banner, { kind: 'error' }, errText(list.error))
           : !list.data ? h(Loading, { label: t('loading') })
             : h(Table, {
@@ -1550,7 +1594,7 @@ window.__ModuleLoader__.load({
      * Tab 4 — backups
      * ==================================================================== */
 
-    function BackupsTab({ ctx, t, nonce, onStatus }) {
+    function BackupsTab({ ctx, t, nonce, onStatus, toast }) {
       const list = useRequest(ctx, 'backup.list', {}, [nonce])
       const [restoring, setRestoring] = useState(null)
       const [revealed, setRevealed] = useState(null)
@@ -1635,11 +1679,11 @@ window.__ModuleLoader__.load({
         revealed ? h(Banner, { kind: 'info' },
           `${t('backupRoot')}: ${revealed.path || '—'} · ${t('rescuePath')}: ${revealed.rescuePath || '—'}`) : null,
         action.error ? h(Banner, { kind: 'error' }, errText(action.error)) : null,
-        action.notice ? h(Banner, { kind: 'ok', onDismiss: () => action.setNotice(null) }, action.notice) : null,
+        h(Toast, { text: action.notice, position: toast && toast.position, seconds: toast && toast.seconds, onDone: () => action.setNotice(null) }),
         list.status === 'error' ? h(Banner, { kind: 'error' }, errText(list.error))
           : !list.data ? h(Loading, { label: t('loading') })
             : h(Table, {
-              headers: [[t('snapshotTime')], [t('backupKind'), '92px'], [t('size'), '100px', 'right'], [t('sha256'), '140px'],
+              headers: [[t('snapshotTime'), '160px'], [t('backupKind'), '92px'], [t('size'), '100px', 'right'], [t('sha256'), '140px'],
                 [t('backupContents')], [t('status'), '110px'], ['', '190px']],
               empty: t('backupEmpty'), emptyHint: t('backupEmptyHint'), children: rows,
             }),
@@ -1666,7 +1710,7 @@ window.__ModuleLoader__.load({
       return [...keys].filter((key) => !(draft[key] === baseline[key] || (draft[key] == null && baseline[key] == null)))
     }
 
-    function SettingsTab({ ctx, t, nonce, onStatus }) {
+    function SettingsTab({ ctx, t, nonce, onStatus, toast, onToastPrefs }) {
       const req = useRequest(ctx, 'settings.get', {}, [nonce])
       const [draft, setDraft] = useState(null)
       const [baseline, setBaseline] = useState(null)
@@ -1704,6 +1748,7 @@ window.__ModuleLoader__.load({
         if (value && value.settings) {
           setDraft({ ...value.settings })
           setBaseline({ ...value.settings })
+          if (onToastPrefs) onToastPrefs(value.settings)
         }
       }
 
@@ -1781,6 +1826,20 @@ window.__ModuleLoader__.load({
                 h('span', { key: 'hint', className: 'dg-hint' }, t('bypassHint')),
               ]
             })())),
+        h(Section, { title: t('toastSection') },
+          h('div', { className: 'dg-grid' },
+            h(SelectField, {
+              label: t('toastPosition'),
+              value: draft.toastPosition === 'bottom' ? 'bottom' : 'top',
+              options: [{ value: 'top', label: t('toastTop') }, { value: 'bottom', label: t('toastBottom') }],
+              onChange: (value) => update('toastPosition', value),
+            }),
+            h(NumField, {
+              label: t('toastSeconds'), min: 1,
+              value: draft.toastSeconds ?? 3,
+              onChange: (value) => update('toastSeconds', Math.max(1, Math.min(15, Number(value) || 3))),
+            })),
+          h('div', { className: 'dg-hint', style: { marginTop: '10px' } }, t('toastHint'))),
         h(Section, {
           title: t('escapeHatch'),
           extra: h(Badge, { kind: source.envEscapeHatch ? 'danger' : 'idle' }, source.envEscapeHatch ? t('escapeOn') : t('escapeOff')),
@@ -1788,7 +1847,7 @@ window.__ModuleLoader__.load({
           h('div', { className: 'dg-hint' }, t('escapeHatchText'), ' ',
             h('span', { className: 'dg-code' }, 'DSH_GUARDIAN_FORCE_DELETE=1'))),
         action.error ? h(Banner, { kind: 'error' }, errText(action.error)) : null,
-        action.notice ? h(Banner, { kind: 'ok', onDismiss: () => action.setNotice(null) }, action.notice) : null,
+        h(Toast, { text: action.notice, position: toast && toast.position, seconds: toast && toast.seconds, onDone: () => action.setNotice(null) }),
         h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center' } },
           h(Button, { variant: 'primary', disabled: action.busy || changed.length === 0, onClick: save }, t('saveChanges')),
           h(Button, {
@@ -1850,8 +1909,28 @@ window.__ModuleLoader__.load({
       const report = useCallback((info) => {
         setStatus((prev) => (prev.status === info.status && prev.at === info.at && prev.error === info.error ? prev : info))
       }, [])
+      const prefs = useRequest(ctx, 'settings.get', {}, [])
+      const [toastPrefs, setToastPrefs] = useState({ position: 'top', seconds: 3 })
+      useEffect(() => {
+        const settings = (prefs.data && prefs.data.settings) || undefined
+        if (settings === undefined) return
+        setToastPrefs({
+          position: settings.toastPosition === 'bottom' ? 'bottom' : 'top',
+          seconds: Number(settings.toastSeconds) > 0 ? Number(settings.toastSeconds) : 3,
+        })
+      }, [prefs.data])
+      const toast = toastPrefs
 
-      const tabProps = { ctx, t, nonce, onStatus: report }
+      const tabProps = {
+        ctx, t, nonce, onStatus: report, toast,
+        onToastPrefs: (settings) => {
+          if (settings === undefined || settings === null) return
+          setToastPrefs({
+            position: settings.toastPosition === 'bottom' ? 'bottom' : 'top',
+            seconds: Number(settings.toastSeconds) > 0 ? Number(settings.toastSeconds) : 3,
+          })
+        },
+      }
       const body = tab === 'trash' ? h(TrashTab, tabProps)
         : tab === 'snapshots' ? h(SnapshotsTab, tabProps)
           : tab === 'backups' ? h(BackupsTab, tabProps)
